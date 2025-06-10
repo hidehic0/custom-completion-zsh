@@ -32,3 +32,5 @@ go.work.sum
 # .vscode/
 
 custom-completion-zsh
+# Added by goreleaser init:
+dist/
