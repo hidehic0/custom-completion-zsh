@@ -1,0 +1,4 @@
+# sample
+# [[tool]]
+# name = "custom-completion"
+# exec = "custom-completion-zsh completion zsh"

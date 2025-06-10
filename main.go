@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -19,8 +20,7 @@ type TomlConfig struct {
 	Tool []ToolConfig `toml:"tool"`
 }
 
-func getConfigs() TomlConfig {
-	var res TomlConfig
+func getConfigDir() string {
 
 	// 環境変数から設定ディレクトリを取得
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
@@ -28,8 +28,23 @@ func getConfigs() TomlConfig {
 		configDir = filepath.Join(os.Getenv("HOME"), ".config")
 	}
 
+	return configDir
+}
+
+func getConfigPath() string {
+	configDir := getConfigDir()
+
 	// 設定ファイルのパスを構築
 	configFile := filepath.Join(configDir, "custom-completion-zsh", "config.toml")
+	return configFile
+}
+
+func getConfigs() TomlConfig {
+	var res TomlConfig
+
+	// 設定ファイルのパスを構築
+	// configFile := filepath.Join(configDir, "custom-completion-zsh", "config.toml")
+	configFile := getConfigPath()
 
 	_, err := toml.DecodeFile(configFile, &res)
 	if err != nil {
@@ -37,6 +52,19 @@ func getConfigs() TomlConfig {
 	}
 
 	return res
+}
+
+func getCompfilePath() string {
+
+	// 環境変数から設定ディレクトリを取得
+	configDir, ok := os.LookupEnv("XDG_DATA_HOME")
+	if !ok {
+		configDir = filepath.Join(os.Getenv("HOME"), ".local/share")
+	}
+
+	configDir = filepath.Join(configDir, "zsh", "custom-completion-zsh")
+
+	return configDir
 }
 
 var rootCmd = &cobra.Command{
@@ -59,7 +87,37 @@ var getConfigCmd = &cobra.Command{
 		config := getConfigs()
 
 		for _, tool := range config.Tool {
-			fmt.Printf("tool name: %s exec command: %s\n", tool.Name, tool.Exec)
+			fmt.Printf("tool name: %s exec command: %s\n", tool.Name, tool.Exec) // TODO:文字を強調させる
+		}
+
+		return nil
+	},
+}
+
+func cleanCompfile() {
+	compfilePath := getCompfilePath()
+	// exec.Command("/bin/zsh", "-i", "-c", "rm", "-rf", compfilePath).Run()
+	os.RemoveAll(compfilePath)
+	exec.Command("mkdir", "-p", compfilePath).Run()
+}
+
+var buildCmd = &cobra.Command{
+	Use:   "build",
+	Long:  "Build",
+	Short: "Build",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		compfilePath := getCompfilePath()
+		cleanCompfile()
+
+		for _, tool := range getConfigs().Tool {
+			output, _ := exec.Command("/bin/zsh", "-i", "-c", tool.Exec).Output()
+			err := os.WriteFile(filepath.Join(compfilePath, "_"+tool.Name), output, 0644)
+
+			if err != nil {
+				fmt.Println(err.Error())
+				cleanCompfile()
+				return nil
+			}
 		}
 
 		return nil
@@ -75,4 +133,5 @@ func main() {
 
 func init() {
 	rootCmd.AddCommand(getConfigCmd)
+	rootCmd.AddCommand(buildCmd)
 }
