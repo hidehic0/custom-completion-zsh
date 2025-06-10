@@ -120,6 +120,8 @@ var buildCmd = &cobra.Command{
 			}
 		}
 
+		fmt.Printf("Add %s to your fpathpath\n", compfilePath)
+
 		return nil
 	},
 }
