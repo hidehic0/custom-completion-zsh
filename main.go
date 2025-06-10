@@ -68,7 +68,7 @@ func getCompfilePath() string {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "example",
+	Use:   "custom-completion-zsh",
 	Long:  "A tool for zsh that automatically sets completion commands set by the user \nLinux only",
 	Short: "Show example",
 	RunE: func(cmd *cobra.Command, args []string) error {
