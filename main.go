@@ -6,8 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/briandowns/spinner"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -109,9 +112,20 @@ var buildCmd = &cobra.Command{
 		compfilePath := getCompfilePath()
 		cleanCompfile()
 
+		commandColor := color.New(color.Bold, color.FgHiBlue)
+		runningStr := color.New(color.Bold).AddRGB(91, 99, 86).Sprint("Running: ")
+		completeStr := color.New(color.Bold, color.FgGreen).Sprint("Completed: ")
+
 		for _, tool := range getConfigs().Tool {
+			s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Build our new spinner
+			s.Suffix = runningStr + commandColor.Sprint(tool.Exec)
+			s.Color("blue", "bold") // Set the spinner color to a bold red
+
+			s.Start()
 			output, _ := exec.Command("/bin/zsh", "-i", "-c", tool.Exec).Output()
 			err := os.WriteFile(filepath.Join(compfilePath, "_"+tool.Name), output, 0644)
+			s.Stop()
+			commandColor.Println(completeStr + commandColor.Sprint(tool.Exec))
 
 			if err != nil {
 				fmt.Println(err.Error())
