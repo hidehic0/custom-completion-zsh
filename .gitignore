@@ -34,3 +34,4 @@ go.work.sum
 custom-completion-zsh
 # Added by goreleaser init:
 dist/
+target
