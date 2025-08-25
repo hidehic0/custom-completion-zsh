@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::{env, fs, process};
+use tokio::process::Command;
+use tokio::sync::mpsc;
 
 #[derive(Parser)]
 #[clap(
@@ -24,7 +26,7 @@ enum SubCommands {
     Build {},
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Config {
     tool: Vec<ToolConfig>,
 }
@@ -112,18 +114,13 @@ fn crean_dir(dir: String) -> Result<usize, &'static str> {
     return Ok(0);
 }
 
-fn write_compfile(tool: ToolConfig, dir: String) {
-    let comp_detail = match process::Command::new("zsh")
+async fn write_compfile(tool: ToolConfig, dir: String) {
+    let comp_detail = Command::new("zsh")
         .arg("-c")
         .arg(&tool.exec)
         .output()
-    {
-        Ok(o) => o,
-        Err(e) => {
-            println!("Error: {}", e);
-            process::exit(256);
-        }
-    };
+        .await
+        .expect("");
 
     match fs::write(
         Path::new(&dir).join(format!("_{}", tool.name)),
@@ -137,7 +134,8 @@ fn write_compfile(tool: ToolConfig, dir: String) {
     };
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     match &cli.subcommand {
@@ -164,11 +162,25 @@ fn main() {
             }
 
             let config = get_config();
+            let (tx1, mut rx1) = mpsc::channel::<String>(config.tool.len());
 
-            for i in 0..config.tool.len() {
-                write_compfile(config.tool[i].clone(), comp_dir.clone());
-                println!("Completed: {}", config.tool[i].exec);
+            for tool in config.tool.clone() {
+                let tx1 = tx1.clone();
+                let comp_dir = comp_dir.clone();
+                tokio::spawn(async move {
+                    write_compfile(tool.clone(), comp_dir).await;
+                    tx1.send(format!("Completed: {}", tool.exec.clone()).to_string())
+                        .await
+                        .unwrap();
+                    // println!("Completed: {}", config.tool[i].exec);
+                });
             }
+            drop(tx1);
+
+            while let Some(msg) = rx1.recv().await {
+                println!("{}", msg);
+            }
+
             println!("Add {} to your fpath", comp_dir)
         }
     }
