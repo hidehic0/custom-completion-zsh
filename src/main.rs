@@ -140,6 +140,19 @@ async fn main() {
 
     match &cli.subcommand {
         SubCommands::Getconfig {} => {
+            match fs::exists(get_config_path()) {
+                Ok(t) => {
+                    if !t {
+                        println!("No settings found");
+                        process::exit(1);
+                    }
+                }
+                Err(_) => {
+                    println!("No settings found");
+                    process::exit(1);
+                }
+            }
+
             println!("{}", get_config_path());
             let config = get_config();
 
@@ -158,6 +171,19 @@ async fn main() {
                 Err(e) => {
                     println!("Error: {}", e);
                     process::exit(256);
+                }
+            }
+
+            match fs::exists(get_config_path()) {
+                Ok(t) => {
+                    if !t {
+                        println!("No settings found");
+                        process::exit(1);
+                    }
+                }
+                Err(_) => {
+                    println!("No settings found");
+                    process::exit(1);
                 }
             }
 
