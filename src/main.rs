@@ -23,7 +23,12 @@ enum SubCommands {
     #[clap(about = "Get config")]
     Getconfig {},
     #[clap(about = "Generate the autocompletion script for the specified shell")]
-    Build {},
+    Build {
+        #[arg(short, long, help = "Keep existing ones")]
+        keep: bool,
+        #[arg(short, long)]
+        quiet: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -114,7 +119,11 @@ fn crean_dir(dir: String) -> Result<usize, &'static str> {
     return Ok(0);
 }
 
-async fn write_compfile(tool: ToolConfig, dir: String) {
+async fn write_compfile(tool: ToolConfig, dir: String, keep: bool) -> bool {
+    if Path::new(&dir).join(format!("_{}", tool.name)).exists() && keep {
+        return true;
+    }
+
     let comp_detail = Command::new("zsh")
         .arg("-c")
         .arg(&tool.exec)
@@ -132,6 +141,8 @@ async fn write_compfile(tool: ToolConfig, dir: String) {
             process::exit(256);
         }
     };
+
+    return false;
 }
 
 #[tokio::main]
@@ -163,14 +174,16 @@ async fn main() {
                 );
             }
         }
-        SubCommands::Build {} => {
+        SubCommands::Build { keep, quiet } => {
             let comp_dir = get_compfile_dir();
 
-            match crean_dir(comp_dir.clone()) {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("Error: {}", e);
-                    process::exit(256);
+            if !keep {
+                match crean_dir(comp_dir.clone()) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        process::exit(256);
+                    }
                 }
             }
 
@@ -193,21 +206,33 @@ async fn main() {
             for tool in config.tool.clone() {
                 let tx1 = tx1.clone();
                 let comp_dir = comp_dir.clone();
+                let keep = keep.clone();
                 tokio::spawn(async move {
-                    write_compfile(tool.clone(), comp_dir).await;
-                    tx1.send(format!("Completed: {}", tool.exec.clone()).to_string())
-                        .await
-                        .unwrap();
+                    let kept = write_compfile(tool.clone(), comp_dir, keep).await;
+                    tx1.send(
+                        format!(
+                            "{}: {}",
+                            if kept { "Kept" } else { "Completed" },
+                            tool.exec.clone()
+                        )
+                        .to_string(),
+                    )
+                    .await
+                    .unwrap();
                     // println!("Completed: {}", config.tool[i].exec);
                 });
             }
             drop(tx1);
 
             while let Some(msg) = rx1.recv().await {
-                println!("{}", msg);
+                if !quiet {
+                    println!("{}", msg);
+                }
             }
 
-            println!("Add {} to your fpath", comp_dir)
+            if !quiet {
+                println!("Add {} to your fpath", comp_dir)
+            }
         }
     }
 }
