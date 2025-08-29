@@ -35,3 +35,6 @@ custom-completion-zsh
 # Added by goreleaser init:
 dist/
 target
+# Added by goreleaser init:
+.intentionally-empty-file.o
+target/
