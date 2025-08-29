@@ -1,7 +1,8 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{Generator, Shell, generate};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::{env, fs, process};
+use std::{env, fs, io, process};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
@@ -14,7 +15,7 @@ use tokio::sync::mpsc;
 Linux only"
 )]
 struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     subcommand: SubCommands,
 }
 
@@ -28,6 +29,10 @@ enum SubCommands {
         keep: bool,
         #[arg(short, long)]
         quiet: bool,
+    },
+    Completion {
+        #[clap(short, long)]
+        shell: Shell,
     },
 }
 
@@ -145,6 +150,15 @@ async fn write_compfile(tool: ToolConfig, dir: String, keep: bool) -> bool {
     return false;
 }
 
+fn print_completions<G: Generator>(generator: G, cmd: &mut clap::Command) {
+    generate(
+        generator,
+        cmd,
+        cmd.get_name().to_string(),
+        &mut io::stdout(),
+    );
+}
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -233,6 +247,10 @@ async fn main() {
             if !quiet {
                 println!("Add {} to your fpath", comp_dir)
             }
+        }
+        SubCommands::Completion { shell } => {
+            let mut cmd = Cli::command();
+            print_completions(*shell, &mut cmd);
         }
     }
 }
