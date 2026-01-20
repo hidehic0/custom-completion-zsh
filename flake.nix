@@ -39,6 +39,10 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           inherit meta;
+          postInstall = ''
+            mkdir -p $out/share/zsh/site-functions
+            $out/bin/custom-completion-zsh completion --shell zsh > $out/share/zsh/site-functions/_custom-completion-zsh
+          '';
         };
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
